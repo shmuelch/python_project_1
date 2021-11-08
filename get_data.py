@@ -33,174 +33,68 @@ We will review your code together
 
 import urllib.request
 import json
-
-from connect_db import *
-
-# FLIGHTS
-
-# empty table flights
-mycursor = mydb.cursor()
-mycursor.execute("TRUNCATE TABLE flights")
-
+import pandas as pd
+from pandas.io.json import json_normalize
+from sqlalchemy import create_engine
  
+# FLIGHTS
 
 url1 = 'https://data.gov.il/api/3/action/datastore_search?resource_id=e83f763b-b7d7-479e-b172-ae981ddc6de5&limit=10000'  
 
-with urllib.request.urlopen(url1) as url:
-    s = url.read()
+df = pd.read_json(url1)
+all_flights=df.result.records
+all_flights=pd.DataFrame(all_flights)
+  
 
-y = json.loads(s)
 
+engine = create_engine('mysql+pymysql://root:@localhost/project_1')
+ 
+all_flights.to_sql(name="flights", con=engine, if_exists = 'replace', index=False)
 
  
- 
-
-all_flights="["
-comma=""
-for z in y["result"]["records"]:
-    if z["CHLOCCT"] !="" and z["CHRMINE"]!="":
-       all_flights+=comma+ "('" + str(z["_id"]) +  "', '" + z["CHOPER"]  +  "', '" + z["CHFLTN"]  +  "', '" + z["CHSTOL"]   + "', '" + z["CHLOCCT"]  + "', '" + z["CHRMINE"]+ "')"
-       comma=","    
-      
-all_flights+="]" 
-
- 
-all_flights=eval(all_flights) # convert string to list of tuples
- 
- 
-
-
-
-sql = "INSERT INTO flights (_id,CHOPER,CHFLTN,CHSTOL,CHLOCCT, CHRMINE) VALUES (%s, %s, %s, %s, %s, %s)"
- 
-
-mycursor.executemany(sql, all_flights)
-
-mydb.commit()
-
 print("flights data ready")
 
 
 #UNIVERSITIES
-
-# empty table universities
-
-
-mycursor.execute("TRUNCATE TABLE universities")
-
-
+ 
 
 url1 = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json'  
 
-with urllib.request.urlopen(url1) as url:
-    s = url.read()
-    
-y = json.loads(s)
+df = pd.read_json(url1)
+all_universities=df
+ 
+all_universities=pd.DataFrame(all_universities)
+#Remove columns from dataframe
+all_universities = all_universities.drop('domains', axis=1)
+all_universities = all_universities.drop('alpha_two_code', axis=1)
+all_universities = all_universities.drop('state-province', axis=1)
 
+#Count websites
   
-
-all_universities="["
-comma=""
  
-for z in y:
-    if z["country"] !="" and z["name"]!="":
-
-       u_name=z["name"].replace('“', '')
-       u_name=u_name.replace('”', '')
-       u_name=u_name.replace("'", '')
-       country=z["country"].replace("'", '')
-       all_universities+=comma+ "('" + country + "', '" +  u_name  + "', "+ str(len(z["web_pages"]))+")"
-       comma="," 
-       
-      
-all_universities+="]"   
-
- 
- 
- 
-all_universities=eval(all_universities) # convert string to list of tuples
+for index, row in all_universities.iterrows():
+    all_universities.at[index,'web_pages'] = len(row['web_pages'])
+    #all_universities[1]["web_pages"]=len(row['web_pages'])
  
 
-
-
-sql = "INSERT INTO universities (COUNTRY,NAME,WEB_PAGES) VALUES (%s, %s, %s)"
- 
-
-mycursor.executemany(sql, all_universities)
-
-mydb.commit()
+all_universities.to_sql(name="universities", con=engine, if_exists = 'replace', index=False)
  
 print("universities  data ready")      
  
 #COUNTRIES
  
 
-# empty table countries
-
-
-mycursor.execute("TRUNCATE TABLE countries") 
-
+ 
 url1 = "https://www.geonames.org/countries/"
+dfs = pd.read_html(url1)
+ 
+ 
+all_countries = dfs[1]
+ 
+ 
+ 
+all_countries.to_sql(name="countries", con=engine, if_exists = 'replace', index=False)
 
-with urllib.request.urlopen(url1) as url:
-    s = url.read()
-
-s =s.decode('UTF-8')
-
-s=s.split('Continent</th></tr>')
-s=s[1]
-
-s=s.split('</table>')
-s=s[0]
-
-s=s.split('<tr')
-first=1
-all_countries="["
-comma=""
-for z in s:
-    if first==1:
-        first=0
-        continue
-    z=z.split('<td')
-    
-    country=z[5]
-    country=country.split('.html">')
-    country=country[1]
-    country=country.split('</a>')
-    country=country[0]
-    area=z[7]
-    area=area.split('">')
-    area=area[1]
-    area=area.split('</td>')
-    area=area[0]
-    
-    area=area.replace(",","")
-
-
-        
-    if country!="":
-        all_countries+=comma+ "('" + country + "', " + area + ")"
-        comma=","    
-    
-    
-all_countries+="]" 
-
-
-all_countries=eval(all_countries) # convert string to list of tuples
-
-
-
-
-
-sql = "INSERT INTO countries (NAME,AREA) VALUES ( %s, %s)"
-
-
-mycursor.executemany(sql, all_countries)
-
-mydb.commit()
-
-print("countries data ready")
-    
-   
-mydb.close()    
-   
+print("countries  data ready")
+ 
+ 

@@ -11,28 +11,21 @@ Git repository with your code and SQL
 We will review your code together
 """
  
-from connect_db import *
+from sqlalchemy import create_engine
+import pandas as pd
 
+engine = create_engine('mysql+pymysql://root:@localhost/project_1')
+ 
+ 
+ 
 #What are the universities with more than one website 
-sql= "SELECT NAME,COUNTRY,WEB_PAGES from universities where WEB_PAGES > 1 "
+sql= "SELECT name,country,web_pages from universities where web_pages > 1 "
  
+df = pd.read_sql(sql, con=engine)
 
-
-mycursor = mydb.cursor()
-
-mycursor.execute(sql)
-
-myresult = mycursor.fetchall()
-
+print("\n\n Universities with more than one website \n")
+print(df)
  
-
-print("\n\nUniversities with more than one website \n") 
-print ("{:<50} {:<25} {:<10}".format('University','Country','Websites'))
-
-for x in myresult:
-    university, country, websites = x
-    print ("{:<50} {:<25} {:<10}".format( university, country, websites))
-
 
  
 #Out of the last 1000 flights - Display the flights Landed from countries which are larger than 1,000,000 km² 
@@ -41,56 +34,36 @@ for x in myresult:
 # This version of MariaDB doesn't yet support 'LIMIT & IN/ALL/ANY/SOME subquery'
 
 
-mycursor.execute("TRUNCATE TABLE flights_temp")
-
-sql="insert into flights_temp (select * from flights order by UNIX_TIMESTAMP(CHSTOL) desc limit 1000 )"
-
-mycursor.execute(sql)
-mydb.commit()
-
  
 
-sql= "  select flights_temp.*,countries.AREA from flights_temp join countries on  (UPPER(flights_temp.CHLOCCT)=UPPER(countries.NAME))    where  CHRMINE='LANDED' and AREA > 1000000 " 
-mycursor.execute(sql)
+sql="select * from flights order by UNIX_TIMESTAMP(CHSTOL) desc limit 1000"
+df = pd.read_sql(sql, con=engine)
+df.to_sql(name="flights_temp", con=engine, if_exists = 'replace', index=False)
+ 
 
-myresult = mycursor.fetchall()
+sql= "  select flights_temp.*,`countries`.`Area in km²` from flights_temp join countries on  (UPPER(flights_temp.CHLOCCT)=UPPER(countries.Country))    where  CHRMINE='LANDED' and `countries`.`Area in km²` > 1000000 " 
+df = pd.read_sql(sql, con=engine) 
 
 print("\n\nLast 1000 flights -  Landed from countries which are larger than 1,000,000 km² \n")
 
-print ("{:<10}{:<40}{:<20}{:<40}{:<10}{:<10}".format('Id','Flight number',"Date",'Country','Status','Area'))
-
-for x in myresult:
-    id,number1,number2, date,country,status,area  = x
-    print ("{:<10}{:<20}{:<20}{:<20}{:<40}{:<10}{:<10}".format(id, number1,number2, date,country,status,area))
-
+print (df)
+  
  
 #Out of the last 1000 flights - Show list of all flights coming from countries with more than 5 universities and that the number of flights for this country is less than 100
 
 
-mycursor.execute("TRUNCATE TABLE flights_temp")
-
-sql="insert into flights_temp (select * from flights order by UNIX_TIMESTAMP(CHSTOL) desc limit 1000 )"
-
-mycursor.execute(sql)
-mydb.commit()
+ 
 
  
 
 sql= "  select * from flights_temp    "
-sql+="  where UPPER(flights_temp.CHLOCCT) in (select UPPER(COUNTRY) from universities GROUP by COUNTRY HAVING COUNT(COUNTRY) > 5 ) "
+sql+="  where UPPER(flights_temp.CHLOCCT) in (select UPPER(country) from universities GROUP by country HAVING COUNT(country) > 5 ) "
 sql+="  and flights_temp.CHLOCCT in (select CHLOCCT from  flights_temp GROUP by CHLOCCT HAVING COUNT(_id) < 100) "
  
-mycursor.execute(sql)
+df = pd.read_sql(sql, con=engine) 
 
-myresult = mycursor.fetchall()
+ 
 
 print("\n\nLast 1000 flights -  coming from countries with more than 5 universities and that the number of flights for this country is less than 100 \n")
 
-print ("{:<10}{:<40}{:<20}{:<40}{:<10} ".format('Id','Flight number',"Date",'Country','Status'))
-
-for x in myresult:
-    id,number1,number2, date,country,status  = x
-    print ("{:<10}{:<20}{:<20}{:<20}{:<40}{:<10}".format(id, number1,number2, date,country,status))
-
-
-mydb.close()    
+print (df)
